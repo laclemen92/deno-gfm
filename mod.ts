@@ -7,7 +7,6 @@ import markedAlert from "marked-alert";
 import markedFootnote from "marked-footnote";
 import { gfmHeadingId } from "marked-gfm-heading-id";
 import Prism from "prismjs";
-import sanitizeHtml from "sanitize-html";
 import "prismjs-yaml";
 
 import { CSS, KATEX_CLASSES, KATEX_CSS } from "./style.ts";
@@ -150,7 +149,7 @@ export interface RenderOptions {
   renderer?: Renderer;
   allowedClasses?: { [index: string]: boolean | Array<string | RegExp> };
   allowedTags?: string[];
-  allowedAttributes?: Record<string, sanitizeHtml.AllowedAttribute[]>;
+  allowedAttributes?: Record<string, string[]>;
   breaks?: boolean;
 }
 
@@ -173,194 +172,7 @@ export function render(markdown: string, opts: RenderOptions = {}): string {
     return html;
   }
 
-  let defaultAllowedTags = sanitizeHtml.defaults.allowedTags.concat([
-    "img",
-    "video",
-    "svg",
-    "path",
-    "circle",
-    "figure",
-    "figcaption",
-    "del",
-    "details",
-    "summary",
-    "input",
-  ]);
-  if (opts.allowIframes) {
-    defaultAllowedTags.push("iframe");
-  }
-  if (opts.allowMath) {
-    defaultAllowedTags = defaultAllowedTags.concat([
-      "math",
-      "maction",
-      "annotation",
-      "annotation-xml",
-      "menclose",
-      "merror",
-      "mfenced",
-      "mfrac",
-      "mi",
-      "mmultiscripts",
-      "mn",
-      "mo",
-      "mover",
-      "mpadded",
-      "mphantom",
-      "mprescripts",
-      "mroot",
-      "mrow",
-      "ms",
-      "semantics",
-      "mspace",
-      "msqrt",
-      "mstyle",
-      "msub",
-      "msup",
-      "msubsup",
-      "mtable",
-      "mtd",
-      "mtext",
-      "mtr",
-    ]);
-  }
-
-  function transformMedia(tagName: string, attribs: sanitizeHtml.Attributes) {
-    if (opts.mediaBaseUrl && attribs.src) {
-      try {
-        attribs.src = new URL(attribs.src, opts.mediaBaseUrl).href;
-      } catch {
-        delete attribs.src;
-      }
-    }
-    return { tagName, attribs };
-  }
-
-  const defaultAllowedClasses = {
-    div: [
-      "highlight",
-      "highlight-source-*",
-      "notranslate",
-      "markdown-alert",
-      "markdown-alert-*",
-      "markdown-code-title",
-    ],
-    span: [
-      "token",
-      "keyword",
-      "operator",
-      "number",
-      "boolean",
-      "function",
-      "string",
-      "comment",
-      "class-name",
-      "regex",
-      "regex-delimiter",
-      "tag",
-      "attr-name",
-      "punctuation",
-      "script-punctuation",
-      "script",
-      "plain-text",
-      "property",
-      "prefix",
-      "line",
-      "deleted",
-      "inserted",
-      "key",
-      "atrule",
-      ...(opts.allowMath ? KATEX_CLASSES : []),
-    ],
-    a: ["anchor"],
-    p: ["markdown-alert-title"],
-    svg: ["octicon", "octicon-alert", "octicon-link"],
-    h2: ["sr-only"],
-    section: ["footnotes"],
-  };
-
-  const defaultAllowedAttributes = {
-    ...sanitizeHtml.defaults.allowedAttributes,
-    img: ["src", "alt", "height", "width", "align", "title"],
-    video: [
-      "src",
-      "alt",
-      "height",
-      "width",
-      "autoplay",
-      "muted",
-      "loop",
-      "playsinline",
-      "poster",
-      "controls",
-      "title",
-    ],
-    a: [
-      "id",
-      "aria-hidden",
-      "href",
-      "tabindex",
-      "rel",
-      "target",
-      "title",
-      "data-footnote-ref",
-      "data-footnote-backref",
-      "aria-label",
-      "aria-describedby",
-    ],
-    svg: ["viewBox", "width", "height", "aria-hidden", "background"],
-    path: ["fill-rule", "d"],
-    circle: ["cx", "cy", "r", "stroke", "stroke-width", "fill", "alpha"],
-    span: opts.allowMath ? ["aria-hidden", "style"] : [],
-    h1: ["id"],
-    h2: ["id"],
-    h3: ["id"],
-    h4: ["id"],
-    h5: ["id"],
-    h6: ["id"],
-    li: ["id"],
-    td: ["colspan", "rowspan", "align", "width"],
-    iframe: ["src", "width", "height"], // Only used when iframe tags are allowed in the first place.
-    math: ["xmlns"], // Only enabled when math is enabled
-    annotation: ["encoding"], // Only enabled when math is enabled
-    details: ["open"],
-    section: ["data-footnotes"],
-    input: [
-      "checked",
-      "disabled",
-      {
-        name: "type",
-        values: ["checkbox"],
-      },
-    ],
-  };
-
-  return sanitizeHtml(html, {
-    transformTags: {
-      img: transformMedia,
-      video: transformMedia,
-    },
-    allowedTags: [...defaultAllowedTags, ...(opts.allowedTags ?? [])],
-    allowedAttributes: mergeAttributes(
-      defaultAllowedAttributes,
-      opts.allowedAttributes ?? {},
-    ),
-    allowedClasses: { ...defaultAllowedClasses, ...opts.allowedClasses },
-    allowProtocolRelative: false,
-    parser: {
-      lowerCaseAttributeNames: false,
-    },
-  });
-}
-
-function mergeAttributes(
-  defaults: Record<string, sanitizeHtml.AllowedAttribute[]>,
-  customs: Record<string, sanitizeHtml.AllowedAttribute[]>,
-) {
-  const merged = { ...defaults };
-  for (const tag in customs) {
-    merged[tag] = [...(merged[tag] || []), ...customs[tag]];
-  }
-  return merged;
+  return html;
 }
 
 function stripTokens(
@@ -427,10 +239,7 @@ function stripTokens(
       case "html": {
         // TODO: extract alt from img
         sections[index][header ? "header" : "content"] +=
-          sanitizeHtml(token.text, {
-            allowedTags: [],
-            allowedAttributes: {},
-          }).trim() + "\n\n";
+          token.text.trim() + "\n\n";
         break;
       }
       case "text":
